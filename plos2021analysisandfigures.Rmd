@@ -1,0 +1,192 @@
+---
+title: "plos2021analysisandfigures"
+author: "Julia Sunga"
+date: "14/04/2021"
+output: pdf_document
+---
+
+The following code is used once plos2021loop.Rmd has been used to generate "networktestnew.csv", consisting of the output of all random subsamples of the available data. 
+
+Prior to running this code, there are a few columns that are manually created in excel, however this could also be done within R (code not provided).These new columns were dependent on if statements. 
+
+1.Column headings based on data obtained from plost2021loop.Rmd from left to right are manually named, "Individuals", "Observations", "Q", "pQ", "Rc", "Subgroups", "Density", "Diameter", "Clustering", "Betweenness", "Degree Centrality", "Similarity". Note that not all calculated values are analyzed here or reported in the manuscript. 
+
+2. First, the number of groups in the observed data set were added with the heading "TrueGroup" and value = 3 across all rows. The "GroupDifference" column was then created calculated as the absolute difference between "TrueGroups" and "Subgroups". 
+
+3. "TrueRc" is added as a column, where all rows are equal to the average community assortativity coefficient when all individuals and all observations are included (0.858)
+
+4. A column "groupinglogit" is created based on an if statement that assigns a value of 1 if Q>0 and pQ<0.05, otherwise the value is assigned as 0. 
+
+5. A column "RcCorrected" is added that sets Rc = 0 if Q = 0. 
+
+_____________________________
+
+This first block corresponds to Figure 1 in the manuscript, the linear regression describing that relationship, and the statistical analysis and visualization related to figure 3a.Panels for Figure 1 were manually assembled in Microsoft Powerpoint 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# 1a - regression for number of detected subgroups (based on GroupDifference Column)
+
+#ran a log transformed model to better fit model assumption of homoscedasticity of residuals
+groupslog<-lm(log(GroupDifference+1)~log(Observations)*log(Individuals))
+summary(groupslog)
+
+#FIGURE 1 - dot plot # of estimated subgroups 
+#set "Observations =="x" where x is number of observations to be included in this figure panel
+#set breaks and labels for desired numbers of individuals
+
+data %>% as.data.table() %>% filter(., Observations =="1") %>% ggplot(., aes(x=Individuals, y=Subgroups))+theme_bw()+geom_point()+ylab("")+xlab("")+geom_line(aes(Individuals, y=3), col="red", size =1.3)+geom_count() +scale_size_area(max_size=6)+ theme(axis.title.y = element_text(angle=0)) + theme(axis.title.y=element_text(vjust=0.5, size=12))+ theme(legend.position = "none") + theme(axis.text.y=element_text(size=25)) + theme(axis.text.x=element_text(size=25)) + theme (axis.title.y=element_text(size=35))+scale_x_continuous(breaks=c(5, 25, 50, 75, 99),labels=c("5", "25", "50", "75","99"))+scale_y_continuous(breaks=c(1,25,50,75,95),labels=c("1", "25", "50", "75", "95"))
+-> P1
+
+#### 1(table) - calculate proportion at each regime that estimate 3 subgroups 
+#create groupcorrect column
+#count 1's by individual and observation levels
+df<-as.data.frame(data)
+
+groupscorrect<-df %>% group_by(Individuals, Observations) %>%  count(Subgroups==3)
+
+
+###Figure 3a-  Create logit model 
+m1 = glm(groupinglogit ~ Individuals * Observations, family=binomial, data=data)
+
+#### create predictive curve figure 
+# Predict admit probability
+newdata = expand.grid(Individuals=seq(5,99, length.out=7108), Observations=c(1,3,5,10,15,20,30,40))
+newdata$prob = predict(m1, newdata, type="response")
+
+#visualize
+p<-ggplot(newdata, aes(Individuals, prob, color=factor(Observations), group=Observations)) + ylab("Probability")+
+  geom_line(size=1.3)+theme_bw()+ylim(0:1)+scale_x_continuous(breaks=c(5, 25, 50, 75, 99),labels=c("5", "25", "50", "75","99"))+theme(legend.title=element_text(size=17),legend.text=element_text(size=14))+theme(axis.text=element_text(color="black"))
+plog1<-p+labs(color="Observations")+theme(axis.text.y=element_text(size=20))+theme(axis.text.x=element_text(size=20)) + theme(axis.title.y=element_text(size=25)) + theme(axis.title.x=element_text(size=25))+geom_hline(aes(yintercept=0.5),linetype="dashed", color="black", size = 1.3)
+
+plog1
+
+#### Table 1 - calculate proportion of significant p's at each regime 
+
+psignif<-df %>% group_by(Individuals, Observations) %>%  count(groupinglogit==1)
+
+```
+
+____________________________
+
+This next block of code corresponds to the creation of Figure 2 (supplementary figures 1 and 2) and associated linear regression analyses. Panels were manually assembled in Microsoft Powerpoint. 
+
+```{r}
+
+#Clustering
+##create column of absolute difference 
+data$cludif<-abs(data$Clustering-0.8283)
+
+plot(data$cludif~data$Individuals)
+plot(data$cludif~data$Observations)
+#homoscedasticity - Definitely violated in raw data but our interest is in the residuals 
+clutest<-lm(cludif~Observations*Individuals)
+summary(clutest) 
+plot(clutest$residuals) #non log transformed actually looks reasonable, all significant, R^2 0.6899
+
+# Figure 2 - Clustering figures - set # of Observations as desired (Supplementary Figure 1)
+
+data %>% as.data.table() %>% filter(., Observations =="1") %>% ggplot(., aes(x=as.factor(Individuals), y=Clustering, beta))+
+  geom_boxplot(lwd=0.6)+xlab("Individuals")+theme_bw()+ geom_hline(aes(yintercept=0.8283),colour="red", size=1.3)+
+  ylab("")+
+  xlab("")+
+  theme(axis.text.y=element_text(size=25)) + theme(axis.text.x=element_text(size=25)) + 
+  theme (axis.title.y=element_text(size=35))-> clu1
+
+
+#Density
+##create column of absolute difference 
+data$dendif<-abs(data$Density-0.6745)
+
+#linear relationship
+plot(data$dendif~data$Individuals)
+plot(data$dendif~data$Observations)
+#homoscedasticity - Definitely violated in raw data but our interest is in the residuals 
+groups<-lm(dendif~Observations*Individuals)
+summary(groups) 
+plot(groups$residuals) #definitely heterscedastic residuals - move to log transformed
+
+attach(data)
+denlog<-lm(log(dendif+1)~log(Observations)*log(Individuals))
+summary(denlog) #all significant including interaction, Adjusted R^2 0.7976
+plot(denlog$residuals)# residuals look way better
+
+#Figure 2 - Density figures - set # of Observations as desired (Supplementary Figure 2)
+data %>% as.data.table() %>% filter(., Observations =="1") %>% ggplot(., aes(x=as.factor(Individuals), y=Density, beta))+
+  geom_boxplot(lwd=0.6)+xlab("Individuals")+theme_bw()+ geom_hline(aes(yintercept=0.6745),colour="red", size=1.3)+
+ylab("")+
+  ylim(0:1)+xlab("")+
+  theme(axis.text.y=element_text(size=25)) + theme(axis.text.x=element_text(size=25)) + 
+  theme (axis.title.y=element_text(size=35))->den1
+
+```
+
+
+_____________________
+
+Next I provide the code used to populate the Rcom values of Table 1, figure 3B, and part of Figure 4 (Supplementary Figure 3)
+
+```{r}
+#### Table 1 - calculate proportion >0.05 but < "observed" Rc value at each regime 
+#set "RcCorrected<=y" where y is the observed Rc value with all information included
+
+df<-as.data.frame(data)
+
+RcRange<-df %>% group_by(Individuals, Observations) %>%  count(RcCorrected>=0.5 & RcCorrected<=0.8575)
+
+#### Figure 3B - create a logit model and figure for this
+data$Rcgood<-ifelse(data$RcCorrected>=0.5 & data$RcCorrected<=0.858, 1, 0)
+
+m2<- glm(Rcgood ~ Individuals * Observations, family=binomial, data=data)
+
+# Predict admit probability
+newdata2 = expand.grid(Individuals=seq(5,99, length.out=7108), Observations=c(1,3,5,10,15,20,30,40))
+newdata2$prob = predict(m2, newdata2, type="response")
+
+# generate figure 3B
+p<-ggplot(newdata2, aes(Individuals, prob, color=factor(Observations), group=Observations)) + ylab("Probability") +
+  geom_line(size=1.3)+theme_bw()+ylim(0:1)+scale_x_continuous(breaks=c(5, 25, 50, 75, 99),labels=c("5", "25", "50", "75","99"))+theme(legend.title=element_text(size=17),legend.text=element_text(size=14))+theme(axis.text=element_text(color="black"))
+plog2<-p+labs(color="Observations")+theme(axis.text.y=element_text(size=20))+theme(axis.text.x=element_text(size=20)) + theme(axis.title.y=element_text(size=25)) + theme(axis.title.x=element_text(size=25))+geom_hline(aes(yintercept=0.5),linetype="dashed", color="black", size = 1.3)
+  
+plog2
+
+#visualize log model figures side by side (Figure 3 complete)
+grid.arrange(plog1, plog2, nrow=1)
+
+
+#generate panels for Figure 4 (Supplementary Figure 3) - set # of Observations as needed
+
+data %>% as.data.table() %>% filter(., Observations =="1") %>% ggplot(., aes(x=as.factor(Individuals), y=RcCorrected, beta))+
+  geom_boxplot(lwd=0.6)+xlab("Individuals")+theme_bw()+ geom_hline(aes(yintercept=0.8575),colour="red", size=1.3)+
+  geom_hline(aes(yintercept=0.5), colour="blue", size=1.3)+ylab("")+
+  ylim(0:1)+xlab("")+
+  theme(axis.text.y=element_text(size=25)) + theme(axis.text.x=element_text(size=25)) + 
+  theme (axis.title.y=element_text(size=35))->R1
+
+```
+
+________________________
+
+
+Finally this code is used to generate the second half of Figure 4 (Supplementary Figure 4) and conduct the associated linear regression. 
+```{r}
+
+#% Similarity 
+plot(data$Similarity~data$Individuals)
+plot(data$Similarity~data$Observations)
+simtest<-lm(Similarity~Observations*Individuals)
+summary(simtest)
+plot(simtest$residuals) #heteroscedasticity of variance
+#determine based on residules whether log-corrected model is more appropriate
+simlog<-lm(log(Similarity+1)~log(Observations)*log(Individuals))
+summary(simlog)
+plot(simlog$residuals)
+
+
+#Figure 4 - % Similarity - Set # of Observations as needed (Supplementary Figure 4)
+data %>% as.data.table() %>% filter(., Observations =="1") %>% ggplot(., aes(x=as.factor(Individuals), y=Similarity))+theme_bw()+xlab("")+ylab("")+geom_boxplot(lwd=0.6)+
+  theme(axis.text.y=element_text(size=25)) + theme(axis.text.x=element_text(size=25)) + ylim(0,1)+
+  theme (axis.title.y=element_text(size=35))->sim1
+```
+
