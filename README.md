@@ -1,2 +1,2 @@
 # sample_size_community_models
-Code associated with Sunga et al. 2021 manuscript in PLOS: "Influence of number of individuals and observations per individual on a model of community structure"
+Code associated with Sunga et al. 2021 manuscript in PLOS: "Influence of number of individuals and observations per individual on a model of community structure". This code is broken into two RMarkdown files, the first (plos2021loop.Rmd) is a loop function that subsets from the dataset avaiable on dryad (_____)  to generate networks and estimate paramaters based on subsets of the available observations and individuals. The second file (plos2021analysisandfigures) provides sample code for statistical analyses and figures that were generated for the manuscript. 
